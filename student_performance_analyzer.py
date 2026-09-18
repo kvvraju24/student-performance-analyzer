@@ -1,11 +1,6 @@
 import csv
 from pathlib import Path
 
-import matplotlib
-
-# Save graphs directly as PNG files. This also lets the program work on systems
-# without a graphical desktop session.
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 PROJECT_FOLDER = Path(__file__).parent
