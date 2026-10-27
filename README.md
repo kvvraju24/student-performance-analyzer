@@ -1,103 +1,150 @@
 # Student Performance Analyzer
 
-A beginner-friendly Python project that analyzes student examination results from a CSV file, plus a bonus interactive HTML dashboard for exploring the same data in the browser.
+Analyze examination scores with a validated Python reporting tool and an interactive web dashboard. Explore 1,000 student records across math, reading, and writing, then export reproducible reports and charts.
 
-## Objective
+![Interactive dashboard with filters, metrics, and group comparisons](docs/dashboard.png)
 
-Read student marks, calculate performance values and grades, identify the highest and lowest performers, create basic graphs, and export the final results.
+## What it does
 
-## Tools Used
+- **Python reports:** validate CSV data, calculate totals and grades, rank records, and export two CSV reports and three Matplotlib charts.
+- **Interactive dashboard:** filter by five background fields, compare groups with sample sizes, view subject averages and score distributions, and search a paginated table.
+- **Quality checks:** 12 Python tests and 7 JavaScript tests cover calculations, invalid input, exports, filters, pagination, reset, and error states. GitHub Actions runs both suites on pushes and pull requests.
 
-- Python 3
-- `csv` module
-- Matplotlib
+## Verified results
 
-## Project Files
+| Measure | Included dataset |
+| --- | ---: |
+| Records | 1,000 |
+| Overall average | 67.77 |
+| Math average | 66.09 |
+| Reading average | 69.17 |
+| Writing average | 68.05 |
+| Scoring at least 50 in every subject | 812 (81.2%) |
 
-```text
-student-performance-analyzer/
-├── StudentsPerformance.csv
-├── student_performance_analyzer.py
-├── index.html                      # bonus interactive dashboard (see below)
-├── requirements.txt
-├── README.md
-└── output/                         # created / refreshed after running the program
-    ├── student_results.csv
-    ├── class_summary.csv
-    ├── subject_averages.png
-    ├── grade_distribution.png
-    └── top_10_students.png
+Reading has the highest subject average in this dataset. Group comparisons describe associations and do not establish causes. This is an educational analysis project, not a predictive model.
+
+![Average score by subject](output/subject_averages.png)
+
+## Quick start
+
+Requires Python 3.11 or newer and Matplotlib. Automated checks cover Python 3.11, 3.12, and 3.13; the project was also tested locally on Python 3.14.
+
+```bash
+git clone https://github.com/kvvraju24/student-performance-analyzer.git
+cd student-performance-analyzer
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements.txt
+python3 student_performance_analyzer.py
 ```
 
-## How to Run
+On Windows, activate with `.venv\Scripts\activate` and use `python` if `python3` is unavailable.
 
-1. Clone the repository and move into it:
+By default, the analyzer reads the dataset beside the script and refreshes the five files in `output/`. Charts are saved without opening desktop windows. Run `python3 student_performance_analyzer.py --help` for options.
 
-   ```bash
-   git clone https://github.com/<your-username>/student-performance-analyzer.git
-   cd student-performance-analyzer
-   ```
+To analyze another compatible CSV and keep the committed sample outputs unchanged:
 
-2. Install the one dependency (Matplotlib):
+```bash
+python3 student_performance_analyzer.py --input path/to/students.csv --output reports/
+```
 
-   ```bash
-   python3 -m pip install -r requirements.txt
-   ```
+Custom paths are relative to your current directory. The default input and output paths are relative to the script. Invalid input produces an error identifying the problem and a nonzero exit status, before reports are written. Existing files in the selected output directory are overwritten on a valid run; old reports remain untouched if validation fails.
 
-3. Run the analyzer:
+## Run the dashboard
 
-   ```bash
-   python3 student_performance_analyzer.py
-   ```
-
-The script always looks for `StudentsPerformance.csv` next to itself, so it works from any folder you clone it into.
-
-## Features
-
-- Reads math, reading, and writing scores from `StudentsPerformance.csv`
-- Calculates total, average, percentage, and grade for every student
-- Shows class and subject averages
-- Finds the top 5 and bottom 5 students
-- Exports calculated results to CSV files
-- Creates three Matplotlib bar charts
-
-## Output Files
-
-After running the program, these files are created (or refreshed) inside `output/`:
-
-| File | Description |
-| --- | --- |
-| `student_results.csv` | Original data with total, average, percentage, and grade |
-| `class_summary.csv` | Overall class average and subject averages |
-| `subject_averages.png` | Comparison of average marks by subject |
-| `grade_distribution.png` | Number of students in each grade |
-| `top_10_students.png` | Top 10 students by percentage |
-
-The `output/` folder is committed with sample results already in it, so anyone browsing the repo can see the charts immediately without running anything.
-
-## Grade Scale
-
-| Percentage | Grade |
-| --- | --- |
-| 90–100 | A |
-| 80–89 | B |
-| 70–79 | C |
-| 60–69 | D |
-| 50–59 | E |
-| Below 50 | F |
-
-## Bonus: Interactive Web Dashboard
-
-`index.html` is a self-contained, dependency-free dashboard for exploring the same dataset in the browser — filter by gender, lunch type, test preparation, race/ethnicity, and parental education; see live metrics, per-group bar charts, a score distribution histogram, and a searchable, paginated student table.
-
-Because it loads `StudentsPerformance.csv` with `fetch()`, browsers won't allow it to run from a plain double-clicked file (`file://` URLs block that for security). Serve it locally instead:
+From the repository folder:
 
 ```bash
 python3 -m http.server 8000
 ```
 
-Then open `http://localhost:8000/index.html` in your browser. Keep `index.html` and `StudentsPerformance.csv` in the same folder.
+Open [http://localhost:8000/index.html](http://localhost:8000/index.html).
 
-## Note
+The dashboard fetches `StudentsPerformance.csv`, so serve the folder instead of double-clicking the HTML file. It uses HTML, CSS, and JavaScript without third-party frontend libraries or a backend service.
 
-The dataset does not contain student names. The program creates IDs such as `Student-001` and `Student-002` so each record can be identified.
+Dropdown filters update the metrics, charts, and table. Search applies only to the table. Reset clears the dropdown filters and search. Group bars include sample sizes; histogram intervals include the lower bound and exclude the upper bound, except the final interval, which includes 100.
+
+## Input contract
+
+The UTF-8 CSV must have unique headers and these eight columns:
+
+```text
+gender,race/ethnicity,parental level of education,lunch,test preparation course,math score,reading score,writing score
+```
+
+- Required values must be nonblank; surrounding whitespace in values is removed.
+- Scores must be whole numbers between 0 and 100. Blank, decimal, negative, non-numeric, and out-of-range scores are rejected.
+- Each row must have the same number of columns as the header.
+- Quoted fields, CRLF line endings, and a UTF-8 byte-order mark are supported.
+- Empty datasets are rejected. Additional uniquely named columns are allowed but are not included in Python exports.
+
+The dataset contains no student names. Python generates identifiers such as `Student-001` from row order. These identifiers are not permanent student identities.
+
+## Calculation rules
+
+Each subject has equal weight. Total = math + reading + writing; average and percentage = total / 3. Grades use the unrounded average.
+
+| Average | Grade |
+| --- | --- |
+| 90–100 | A |
+| 80 to below 90 | B |
+| 70 to below 80 | C |
+| 60 to below 70 | D |
+| 50 to below 60 | E |
+| Below 50 | F |
+
+The dashboard pass rate measures the proportion scoring at least 50 **in every subject**. This differs from receiving a passing overall grade. The dashboard rounds the displayed pass rate to a whole percentage. Tied overall rankings in Python retain input order.
+
+## Tests
+
+The Python suite uses the standard library; no extra test dependency is needed. JavaScript tests require Node.js 22 or newer and use its built-in test runner.
+
+```bash
+python3 -m unittest discover -s tests -v
+node --test tests/dashboard.test.cjs
+```
+
+A shared two-record fixture verifies totals of 270 and 150, averages of 90 and 50, grades A and E, and a class average of 70. The full-dataset regression checks verify all 1,000 records and the subject averages. The Python command-line test generates and inspects all five output files in a temporary directory. Dashboard tests simulate the document; a real browser was also checked manually for loading, filtering, search, and reset.
+
+See the [automated check results](https://github.com/kvvraju24/student-performance-analyzer/actions).
+
+## Structure
+
+```text
+student-performance-analyzer/
+├── analyzer_core.py                  # CSV validation and reusable calculations
+├── student_performance_analyzer.py   # CLI, CSV reports, and plotting
+├── StudentsPerformance.csv           # bundled sample data
+├── index.html                        # dashboard structure
+├── dashboard.js                      # loading, validation, filtering, and rendering
+├── style.css
+├── tests/
+│   ├── fixtures/students.csv          # shared Python/JavaScript example
+│   ├── test_analyzer.py
+│   └── dashboard.test.cjs
+├── .github/workflows/checks.yml
+├── docs/dashboard.png
+├── requirements.txt
+└── output/                           # committed sample reports and charts
+```
+
+## Output files
+
+| File in `output/` | Contents |
+| --- | --- |
+| `student_results.csv` | Required background fields, scores, generated IDs, totals, averages, percentages, and grades |
+| `class_summary.csv` | Record count and class/subject averages |
+| `subject_averages.png` | Average score by subject |
+| `grade_distribution.png` | Record count by grade |
+| `top_10_students.png` | Ten highest overall averages |
+
+## Limitations and next steps
+
+- The original dataset source and its reuse terms are not yet documented. The code license does not establish dataset permissions.
+- A hosted demo URL has not been verified; the dashboard currently has documented local setup instructions.
+- Python and JavaScript validation are separate implementations. Shared fixtures check key results, but they are not a proof of identical handling of every CSV dialect.
+- Future work: document dataset provenance, publish a hosted demo, add mobile browser automation, and expand analyses with group counts and uncertainty where appropriate.
+
+## License
+
+Project code is available under the [MIT License](LICENSE). Dataset attribution and reuse terms must be documented separately.

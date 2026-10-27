@@ -1,77 +1,21 @@
+import argparse
 import csv
+import sys
 from pathlib import Path
 
-import matplotlib.pyplot as plt
+from analyzer_core import read_students, summarize_students
 
 PROJECT_FOLDER = Path(__file__).parent
 INPUT_FILE = PROJECT_FOLDER / "StudentsPerformance.csv"
 OUTPUT_FOLDER = PROJECT_FOLDER / "output"
 
-SUBJECTS = ("math score", "reading score", "writing score")
-
-
-def calculate_grade(percentage):
-    """Return a letter grade from a percentage."""
-    if percentage >= 90:
-        return "A"
-    if percentage >= 80:
-        return "B"
-    if percentage >= 70:
-        return "C"
-    if percentage >= 60:
-        return "D"
-    if percentage >= 50:
-        return "E"
-    return "F"
-
-
-def read_students():
-    """Read the CSV and add calculated fields to every student record."""
-    students = []
-
-    with INPUT_FILE.open("r", encoding="utf-8-sig", newline="") as file:
-        reader = csv.DictReader(file)
-
-        for student_number, row in enumerate(reader, start=1):
-            math = int(row["math score"])
-            reading = int(row["reading score"])
-            writing = int(row["writing score"])
-
-            total = math + reading + writing
-            average = total / len(SUBJECTS)
-            # Each subject is scored out of 100, so the average is also the percentage.
-            percentage = average
-
-            students.append(
-                {
-                    "student_id": f"Student-{student_number:03d}",
-                    "gender": row["gender"],
-                    "race_ethnicity": row["race/ethnicity"],
-                    "parent_education": row["parental level of education"],
-                    "lunch": row["lunch"],
-                    "test_preparation": row["test preparation course"],
-                    "math": math,
-                    "reading": reading,
-                    "writing": writing,
-                    "total": total,
-                    "average": average,
-                    "percentage": percentage,
-                    "grade": calculate_grade(percentage),
-                }
-            )
-
-    return students
-
 
 def print_summary(students):
     """Print the main analysis in the terminal."""
-    subject_averages = {
-        "Math": sum(s["math"] for s in students) / len(students),
-        "Reading": sum(s["reading"] for s in students) / len(students),
-        "Writing": sum(s["writing"] for s in students) / len(students),
-    }
-    class_average = sum(s["average"] for s in students) / len(students)
-    ranked = sorted(students, key=lambda student: student["average"], reverse=True)
+    summary = summarize_students(students)
+    subject_averages = summary["subject_averages"]
+    class_average = summary["class_average"]
+    ranked = summary["ranked"]
 
     print("\n" + "=" * 58)
     print("             STUDENT PERFORMANCE ANALYZER")
@@ -99,11 +43,12 @@ def print_summary(students):
     return subject_averages, ranked
 
 
-def export_results(students, subject_averages):
+def export_results(students, subject_averages, output_folder=OUTPUT_FOLDER):
     """Save calculated student results and a small class summary as CSV files."""
-    OUTPUT_FOLDER.mkdir(exist_ok=True)
+    output_folder = Path(output_folder)
+    output_folder.mkdir(parents=True, exist_ok=True)
 
-    results_file = OUTPUT_FOLDER / "student_results.csv"
+    results_file = output_folder / "student_results.csv"
     columns = [
         "student_id", "gender", "race_ethnicity", "parent_education", "lunch",
         "test_preparation", "math", "reading", "writing", "total", "average",
@@ -119,7 +64,7 @@ def export_results(students, subject_averages):
             row["percentage"] = f"{student['percentage']:.2f}"
             writer.writerow(row)
 
-    summary_file = OUTPUT_FOLDER / "class_summary.csv"
+    summary_file = output_folder / "class_summary.csv"
     with summary_file.open("w", encoding="utf-8", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(["measure", "value"])
@@ -131,8 +76,15 @@ def export_results(students, subject_averages):
     print(f"\nExported: {results_file.name} and {summary_file.name}")
 
 
-def make_graphs(students, subject_averages, ranked):
+def make_graphs(students, subject_averages, ranked, output_folder=OUTPUT_FOLDER):
     """Create three simple Matplotlib charts and save them as PNG images."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    output_folder = Path(output_folder)
+    output_folder.mkdir(parents=True, exist_ok=True)
     plt.style.use("ggplot")
 
     # Graph 1: compare average score in each subject.
@@ -146,7 +98,7 @@ def make_graphs(students, subject_averages, ranked):
     for bar, value in zip(bars, values):
         plt.text(bar.get_x() + bar.get_width() / 2, value + 1, f"{value:.1f}", ha="center")
     plt.tight_layout()
-    plt.savefig(OUTPUT_FOLDER / "subject_averages.png", dpi=160)
+    plt.savefig(output_folder / "subject_averages.png", dpi=160)
     plt.close()
 
     # Graph 2: count how many students received each grade.
@@ -162,7 +114,7 @@ def make_graphs(students, subject_averages, ranked):
     for bar, count in zip(bars, grade_counts.values()):
         plt.text(bar.get_x() + bar.get_width() / 2, count + 4, str(count), ha="center")
     plt.tight_layout()
-    plt.savefig(OUTPUT_FOLDER / "grade_distribution.png", dpi=160)
+    plt.savefig(output_folder / "grade_distribution.png", dpi=160)
     plt.close()
 
     # Graph 3: compare the 10 highest overall averages.
@@ -177,27 +129,28 @@ def make_graphs(students, subject_averages, ranked):
     plt.ylabel("Percentage")
     plt.xticks(rotation=35, ha="right")
     plt.tight_layout()
-    plt.savefig(OUTPUT_FOLDER / "top_10_students.png", dpi=160)
+    plt.savefig(output_folder / "top_10_students.png", dpi=160)
     plt.close()
 
     print("Created graphs: subject_averages.png, grade_distribution.png, top_10_students.png")
 
 
-def main():
-    if not INPUT_FILE.exists():
-        print(f"Error: Cannot find {INPUT_FILE.name} in {PROJECT_FOLDER}")
-        return
-
-    students = read_students()
-    if not students:
-        print("Error: The CSV file contains no student records.")
-        return
-
-    subject_averages, ranked = print_summary(students)
-    export_results(students, subject_averages)
-    make_graphs(students, subject_averages, ranked)
-    print(f"All project files are in: {OUTPUT_FOLDER}")
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Validate student scores and generate CSV reports and charts.")
+    parser.add_argument("--input", type=Path, default=INPUT_FILE, help="Input CSV (default: bundled dataset)")
+    parser.add_argument("--output", type=Path, default=OUTPUT_FOLDER, help="Output directory (existing reports are replaced)")
+    args = parser.parse_args(argv)
+    try:
+        students = read_students(args.input)
+        subject_averages, ranked = print_summary(students)
+        export_results(students, subject_averages, args.output)
+        make_graphs(students, subject_averages, ranked, args.output)
+    except (OSError, UnicodeError, ValueError) as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+    print(f"All project files are in: {args.output.resolve()}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+.pytest_cache/
+# Keep committed sample outputs; use reports/ for personal runs.
+reports/
