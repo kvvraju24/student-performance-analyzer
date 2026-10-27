@@ -34,7 +34,7 @@ def print_summary(students):
         )
 
     print("\nBottom 5 students:")
-    for position, student in enumerate(reversed(ranked[-5:]), start=1):
+    for position, student in enumerate(sorted(students, key=lambda student: student["average"])[:5], start=1):
         print(
             f"  {position}. {student['student_id']} — "
             f"{student['percentage']:.2f}% ({student['grade']})"
@@ -49,24 +49,25 @@ def export_results(students, subject_averages, output_folder=OUTPUT_FOLDER):
     output_folder.mkdir(parents=True, exist_ok=True)
 
     results_file = output_folder / "student_results.csv"
-    columns = [
-        "student_id", "gender", "race_ethnicity", "parent_education", "lunch",
-        "test_preparation", "math", "reading", "writing", "total", "average",
-        "percentage", "grade",
-    ]
+    subject_columns = [name.lower().replace(" ", "_") for name in students[0]["scores"]]
+    columns = ["student_id", "cohort", "gender", "race_ethnicity", "parent_education", "lunch", "test_preparation", *subject_columns, "total", "average", "percentage", "grade"]
     with results_file.open("w", encoding="utf-8", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=columns)
+        writer = csv.DictWriter(file, fieldnames=columns, lineterminator="\n")
         writer.writeheader()
         for student in students:
             # Keep numbers in the export easy to read.
-            row = student.copy()
+            row = {key: student[key] for key in columns}
             row["average"] = f"{student['average']:.2f}"
             row["percentage"] = f"{student['percentage']:.2f}"
+            # Prevent spreadsheet formula execution if an input text field is untrusted.
+            for key, value in row.items():
+                if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")):
+                    row[key] = "'" + value
             writer.writerow(row)
 
     summary_file = output_folder / "class_summary.csv"
     with summary_file.open("w", encoding="utf-8", newline="") as file:
-        writer = csv.writer(file)
+        writer = csv.writer(file, lineterminator="\n")
         writer.writerow(["measure", "value"])
         writer.writerow(["students analyzed", len(students)])
         writer.writerow(["overall class average", f"{sum(s['average'] for s in students) / len(students):.2f}"])

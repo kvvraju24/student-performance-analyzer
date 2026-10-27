@@ -58,7 +58,12 @@ function csvParse(text) {
     if (quoted) throw new Error("CSV contains an unterminated quoted field.");
     if (cell || row.length || closedQuote) finishRow();
     const [headers = [], ...items] = rows;
-    const required = [...Object.values(fields), ...scoreFields];
+    const baseSubjects = ["math score", "reading score", "writing score"];
+    const discovered = headers.filter(key => key.endsWith(" score"));
+    if (discovered.length > 12 || discovered.some(key => !/^[a-z][a-z ]{0,39} score$/.test(key))) throw new Error("Use at most 12 subjects with lowercase ASCII names.");
+    const reserved = new Set(["student_id", "cohort", "gender", "race_ethnicity", "parent_education", "lunch", "test_preparation", "total", "average", "percentage", "grade", "scores"]);
+    if (discovered.some(key => reserved.has(key.replace(/ score$/, "").replaceAll(" ", "_")))) throw new Error("Subject name conflicts with a reserved output field.");
+    const required = [...Object.values(fields), ...baseSubjects, ...discovered];
     const missing = required.filter(key => !headers.includes(key));
     if (missing.length) throw new Error("Missing required columns: " + missing.join(", "));
     if (new Set(headers).size !== headers.length) throw new Error("CSV headers must be unique.");
@@ -68,12 +73,14 @@ function csvParse(text) {
         required.forEach(key => {
             const value = row[headers.indexOf(key)].trim();
             if (!value) throw new Error(`CSV record ${index + 1}, column '${key}': value is required.`);
-            if (scoreFields.includes(key) && (!/^[0-9]+$/.test(value) || Number(value) > 100)) {
+            if (discovered.includes(key) && (!/^[0-9]+$/.test(value) || Number(value) > 100)) {
                 throw new Error(`CSV record ${index + 1}, column '${key}': expected an integer from 0 to 100.`);
             }
             row[headers.indexOf(key)] = value;
         });
     });
+    scoreFields.splice(0, scoreFields.length, ...discovered);
+    discovered.forEach(key => { nice[key] = key.replace(/ score$/, "").replace(/\b\w/g, c => c.toUpperCase()); });
     return items.map(row =>
         Object.fromEntries(
             headers.map(
@@ -86,6 +93,7 @@ function csvParse(text) {
     );
 }
 function setup() {
+    $("student-columns").innerHTML = ["Gender", "Race / Ethnicity", "Parent Education", "Lunch", "Preparation", ...scoreFields.map(key => nice[key])].map(label => `<th>${escapeHtml(label)}</th>`).join("");
     Object.entries(fields).forEach(
         ([id, key]) => {
             const element = $(id);
@@ -202,7 +210,7 @@ function overall(row) {
                 sum + Number(row[key]),
             0
         )
-        / 3
+        / scoreFields.length
     );
 }
 function avg(rows, key) {
@@ -230,7 +238,7 @@ function render() {
                 sum + score.value,
             0
         )
-        / 3;
+        / scoreFields.length;
     const passed = total
         ?
         filtered.filter(
@@ -290,13 +298,9 @@ function renderBars() {
                     count: rows.length,
                     avg:
                         (
-                            avg(rows, "math score")
-                            +
-                            avg(rows, "reading score")
-                            +
-                            avg(rows, "writing score")
+                            scoreFields.reduce((sum, field) => sum + avg(rows, field), 0)
                         )
-                        / 3
+                        / scoreFields.length
                 };
             }
         )
@@ -346,7 +350,7 @@ function renderSubjects(scores) {
                         <div
                             class="fill"
                             style="
-                                --c:${colors[index]};
+                                --c:${colors[index % colors.length]};
                                 width:${score.value}%;
                             ">
                         </div>
@@ -447,7 +451,7 @@ function renderTable() {
         $("table").innerHTML = `
             <tr>
                 <td
-                    colspan="8"
+                    colspan="${5 + scoreFields.length}"
                     class="empty"
                 >
                     No records found.
@@ -477,15 +481,7 @@ function renderTable() {
                         <td>
                             ${escapeHtml(row["test preparation course"])}
                         </td>
-                        <td class="num">
-                            ${row["math score"]}
-                        </td>
-                        <td class="num">
-                            ${row["reading score"]}
-                        </td>
-                        <td class="num">
-                            ${row["writing score"]}
-                        </td>
+                        ${scoreFields.map(key => `<td class="num">${escapeHtml(row[key])}</td>`).join("")}
                     </tr>
                 `
             ).join("");
@@ -497,13 +493,8 @@ function renderTable() {
     $("next").disabled =
         page === pages;
 }
-/*
-    DATASET CONNECTION
-    index.html
-         ↓
-    StudentsPerformance.csv
-*/
-fetch("StudentsPerformance.csv")
+// Only synthetic demo data is served publicly; private records require the backend API.
+fetch(document.body?.dataset?.source || "data/synthetic_students.csv")
 .then(response => {
     if (!response.ok)
         throw new Error(

@@ -1,150 +1,117 @@
 # Student Performance Analyzer
 
-Analyze examination scores with a validated Python reporting tool and an interactive web dashboard. Explore 1,000 student records across math, reading, and writing, then export reproducible reports and charts.
+A local student analytics app with a **5,000-student, eight-subject synthetic demo**, a private Django workspace, a normalized SQLite database, a validated CSV reporting tool, and optional read-only agent/MCP integrations.
 
-![Interactive dashboard with filters, metrics, and group comparisons](docs/dashboard.png)
+![Public synthetic dashboard](docs/dashboard.png)
 
-## What it does
+**All expanded records are fictional.** They are for software demonstrations and testing, not educational decisions or demographic findings. The original 1,000-row CSV remains separate and unchanged.
 
-- **Python reports:** validate CSV data, calculate totals and grades, rank records, and export two CSV reports and three Matplotlib charts.
-- **Interactive dashboard:** filter by five background fields, compare groups with sample sizes, view subject averages and score distributions, and search a paginated table.
-- **Quality checks:** 12 Python tests and 7 JavaScript tests cover calculations, invalid input, exports, filters, pagination, reset, and error states. GitHub Actions runs both suites on pushes and pull requests.
+## Start on your Mac
 
-## Verified results
+Python 3.11+ is required. From the project folder:
 
-| Measure | Included dataset |
-| --- | ---: |
-| Records | 1,000 |
-| Overall average | 67.77 |
-| Math average | 66.09 |
-| Reading average | 69.17 |
-| Writing average | 68.05 |
-| Scoring at least 50 in every subject | 812 (81.2%) |
-
-Reading has the highest subject average in this dataset. Group comparisons describe associations and do not establish causes. This is an educational analysis project, not a predictive model.
-
-![Average score by subject](output/subject_averages.png)
-
-## Quick start
-
-Requires Python 3.11 or newer and Matplotlib. Automated checks cover Python 3.11, 3.12, and 3.13; the project was also tested locally on Python 3.14.
-
-```bash
-git clone https://github.com/kvvraju24/student-performance-analyzer.git
-cd student-performance-analyzer
+```sh
 python3 -m venv .venv
-source .venv/bin/activate
-python3 -m pip install -r requirements.txt
-python3 student_performance_analyzer.py
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python manage.py migrate
+.venv/bin/python manage.py bootstrap_local
+.venv/bin/python manage.py changepassword local-admin
+.venv/bin/python manage.py runserver 127.0.0.1:8000 --noreload
 ```
 
-On Windows, activate with `.venv\Scripts\activate` and use `python` if `python3` is unavailable.
+Choose your admin password in the terminal prompt. There is **no default password**: bootstrap creates an account with sign-in disabled until you choose one. After dependencies are installed, double-click **Start.command** to initialize, choose a password if needed, and open the workspace.
 
-By default, the analyzer reads the dataset beside the script and refreshes the five files in `output/`. Charts are saved without opening desktop windows. Run `python3 student_performance_analyzer.py --help` for options.
+- [Public synthetic demo](http://127.0.0.1:8000/)
+- [Private workspace](http://127.0.0.1:8000/workspace/)
+- [Superuser administration](http://127.0.0.1:8000/admin/)
 
-To analyze another compatible CSV and keep the committed sample outputs unchanged:
+Keep the server bound to loopback. **Do not serve the repository with `python -m http.server`**: it now contains a private backend. Use the routed Django server. This is a local implementation; public hosting has not been configured or audited.
 
-```bash
-python3 student_performance_analyzer.py --input path/to/students.csv --output reports/
+## Implemented features
+
+- **Public demo:** five background filters, group averages with sample sizes, all-subject metrics, histogram, searchable/paginated table, and reset.
+- **Private workspace:** Django login/logout and password change, pseudonymous student creation, per-subject score entry and owner-scoped records. No public signup.
+- **Database:** Student, Subject and Score tables, eight seeded subjects, foreign keys, score/uniqueness constraints, migrations, 5,000 seeded students and 40,000 scores for the local account.
+- **API:** authenticated and paginated record access; CSRF-protected JSON writes; strict input allowlists. Expiring integration tokens can only read their owner's data.
+- **Reporting:** dynamic subjects, grades, rankings, two CSV exports and three charts. Exported text that could execute spreadsheet formulas is neutralized.
+- **Integrations:** deterministic RecordsAgent → SummaryAgent pipeline and optional stdio MCP tools; no external LLM/provider account is configured.
+
+## Subjects and data
+
+Math, Reading, Writing, Physics, Chemistry, Biology, Computer Science and History. Scores are whole numbers from 0 to 100, with equal subject weight. The synthetic dataset contains 5,000 unique IDs and ten cohorts. Its overall average is **67.54**. These generated values have no real-world statistical meaning.
+
+| Dataset | Records | Subjects | Purpose |
+|---|---:|---:|---|
+| `data/synthetic_students.csv` | 5,000 | 8 | Public fictional demo and private seed data |
+| `StudentsPerformance.csv` | 1,000 | 3 | Preserved original regression baseline; source/reuse terms remain unverified |
+
+The [manifest](data/manifest.json) records the generation seed and provenance. Regenerate with `python tools/generate_demo.py`. Synthetic data is generated independently; extra scores are never invented for original rows.
+
+CSV inputs require the original five background columns and three base score columns. Additional lowercase subject names ending in ` score` are supported, up to twelve subjects total. Optional `student_id` values must be unique 1–32 character ASCII codes; optional cohorts accept 1–40 ASCII letters/digits/spaces/hyphens/underscores. Required values cannot be blank. Invalid input fails before new reports are written.
+
+## Security protections and limits
+
+Django provides sessions, CSRF and password validation; new password hashes use Argon2. Backend queries enforce record ownership, and admin access requires an active superuser. The staff flag alone is insufficient. JSON fields, score ranges, body sizes, page sizes, searches and rates are bounded. Templates and dashboard text are escaped. Secret/database files have no public route.
+
+Debug is always off. Browser responses include CSP, anti-framing, nosniff and restrictive permissions headers; sensitive routes are not cached. CSP allows inline **styles** for chart bars, but not inline scripts. Rate limits use shared database counters: login 10/IP and normalized account per 15 minutes, APIs/workspace writes 120/IP/minute. Spoofed forwarding headers are ignored.
+
+Local HTTP cookies are intentional for loopback development. Production mode enables HTTPS redirect, HSTS and Secure cookies and requires an independent signing key and explicit hosts. Production hosting, MFA, remote databases, edge protection and backup restoration still need review. A scan cannot guarantee the absence of vulnerabilities.
+
+See the [security audit](docs/security-audit.md), [security policy](SECURITY.md) and [.env.example](.env.example). Environment values are never required in the browser. No external API keys were found in the performed repository scans.
+
+## Offline analysis
+
+```sh
+.venv/bin/python student_performance_analyzer.py --input data/synthetic_students.csv --output reports/
+# Original three-subject baseline:
+.venv/bin/python student_performance_analyzer.py
 ```
 
-Custom paths are relative to your current directory. The default input and output paths are relative to the script. Invalid input produces an error identifying the problem and a nonzero exit status, before reports are written. Existing files in the selected output directory are overwritten on a valid run; old reports remain untouched if validation fails.
+The original sample reports remain in `output/`. Eight-subject examples are in [output/synthetic](output/synthetic/). Both contain student_results.csv, class_summary.csv, subject_averages.png, grade_distribution.png and top_10_students.png. Existing reports in the chosen directory are overwritten on a valid run; a validation failure leaves earlier files untouched.
 
-## Run the dashboard
+Grades use the unrounded overall average: A ≥90, B ≥80, C ≥70, D ≥60, E ≥50, otherwise F. The dashboard pass rate requires **at least 50 in every subject**, which differs from a passing overall average. Ranking ties preserve input order.
 
-From the repository folder:
+## API, agents and MCP
 
-```bash
-python3 -m http.server 8000
+See the [API contract](docs/project/05-api-integration.md). Browser writes require a session and CSRF. Integration credentials are deliberately read-only, expire in 1–30 days and are stored only as digests.
+
+```sh
+.venv/bin/python -m pip install -r requirements-integrations.txt
+.venv/bin/python manage.py create_read_token --owner local-admin --name local-agent --days 1
+# Save the shown-once value privately as ANALYZER_API_TOKEN in the process environment.
+.venv/bin/python -m integrations.agents
+# Optional MCP stdio transport:
+.venv/bin/python -m integrations.mcp_server
 ```
 
-Open [http://localhost:8000/index.html](http://localhost:8000/index.html).
+Keep the Django server running in another terminal. The client only accepts loopback origins, does not follow redirects, and limits response size and request duration. Do not commit tokens or paste them into chat. [Agent integration](docs/project/06-agent-integration.md) and [MCP connection](docs/project/12-mcp-connection.md) explain configuration. External services and desktop MCP clients were not silently configured.
 
-The dashboard fetches `StudentsPerformance.csv`, so serve the folder instead of double-clicking the HTML file. It uses HTML, CSS, and JavaScript without third-party frontend libraries or a backend service.
+## Tests and audit commands
 
-Dropdown filters update the metrics, charts, and table. Search applies only to the table. Reset clears the dropdown filters and search. Group bars include sample sizes; histogram intervals include the lower bound and exclude the upper bound, except the final interval, which includes 100.
-
-## Input contract
-
-The UTF-8 CSV must have unique headers and these eight columns:
-
-```text
-gender,race/ethnicity,parental level of education,lunch,test preparation course,math score,reading score,writing score
-```
-
-- Required values must be nonblank; surrounding whitespace in values is removed.
-- Scores must be whole numbers between 0 and 100. Blank, decimal, negative, non-numeric, and out-of-range scores are rejected.
-- Each row must have the same number of columns as the header.
-- Quoted fields, CRLF line endings, and a UTF-8 byte-order mark are supported.
-- Empty datasets are rejected. Additional uniquely named columns are allowed but are not included in Python exports.
-
-The dataset contains no student names. Python generates identifiers such as `Student-001` from row order. These identifiers are not permanent student identities.
-
-## Calculation rules
-
-Each subject has equal weight. Total = math + reading + writing; average and percentage = total / 3. Grades use the unrounded average.
-
-| Average | Grade |
-| --- | --- |
-| 90–100 | A |
-| 80 to below 90 | B |
-| 70 to below 80 | C |
-| 60 to below 70 | D |
-| 50 to below 60 | E |
-| Below 50 | F |
-
-The dashboard pass rate measures the proportion scoring at least 50 **in every subject**. This differs from receiving a passing overall grade. The dashboard rounds the displayed pass rate to a whole percentage. Tied overall rankings in Python retain input order.
-
-## Tests
-
-The Python suite uses the standard library; no extra test dependency is needed. JavaScript tests require Node.js 22 or newer and use its built-in test runner.
-
-```bash
-python3 -m unittest discover -s tests -v
+```sh
+.venv/bin/python -m pip install -r requirements-dev.txt -r requirements-integrations.txt
+.venv/bin/python -m unittest discover -s tests -v
 node --test tests/dashboard.test.cjs
+.venv/bin/python manage.py test records
+.venv/bin/python manage.py check
+.venv/bin/python tools/check_production_settings.py
+.venv/bin/pip-audit -r requirements.txt
+.venv/bin/pip-audit -r requirements-integrations.txt
+.venv/bin/bandit -r config records integrations tools analyzer_core.py student_performance_analyzer.py -x records/tests.py,records/test_integrations.py -q
 ```
 
-A shared two-record fixture verifies totals of 270 and 150, averages of 90 and 50, grades A and E, and a class average of 70. The full-dataset regression checks verify all 1,000 records and the subject averages. The Python command-line test generates and inspects all five output files in a temporary directory. Dashboard tests simulate the document; a real browser was also checked manually for loading, filtering, search, and reset.
+Node.js 22+ is required for JavaScript tests. The suite contains 14 analysis/export checks, 8 dashboard checks and 22 Django/security/integration checks. MCP tests explicitly skip if the optional package is absent. The integration test establishes a real stdio MCP session and calls the authenticated HTTP API with a temporary test credential.
 
-See the [automated check results](https://github.com/kvvraju24/student-performance-analyzer/actions).
+[GitHub Actions](https://github.com/kvvraju24/student-performance-analyzer/actions) checks Python 3.11–3.14, Node tests, integrations, known dependency vulnerabilities, source patterns and reachable Git secrets. Action references are pinned to commit IDs; Dependabot checks dependency/action updates weekly. Audit tools are development-only; MCP is optional.
 
-## Structure
+## Project documents
 
-```text
-student-performance-analyzer/
-├── analyzer_core.py                  # CSV validation and reusable calculations
-├── student_performance_analyzer.py   # CLI, CSV reports, and plotting
-├── StudentsPerformance.csv           # bundled sample data
-├── index.html                        # dashboard structure
-├── dashboard.js                      # loading, validation, filtering, and rendering
-├── style.css
-├── tests/
-│   ├── fixtures/students.csv          # shared Python/JavaScript example
-│   ├── test_analyzer.py
-│   └── dashboard.test.cjs
-├── .github/workflows/checks.yml
-├── docs/dashboard.png
-├── requirements.txt
-└── output/                           # committed sample reports and charts
-```
+The [15-document index](docs/project/README.md) covers requirements, UI/UX, [architecture](architecture.md), database, API, agents, README, implementation, setup, features, security/authentication, MCP, integration, QA, and debugging. It distinguishes implemented local behavior from future production work.
 
-## Output files
+## Private local state
 
-| File in `output/` | Contents |
-| --- | --- |
-| `student_results.csv` | Required background fields, scores, generated IDs, totals, averages, percentages, and grades |
-| `class_summary.csv` | Record count and class/subject averages |
-| `subject_averages.png` | Average score by subject |
-| `grade_distribution.png` | Record count by grade |
-| `top_10_students.png` | Ten highest overall averages |
-
-## Limitations and next steps
-
-- The original dataset source and its reuse terms are not yet documented. The code license does not establish dataset permissions.
-- A hosted demo URL has not been verified; the dashboard currently has documented local setup instructions.
-- Python and JavaScript validation are separate implementations. Shared fixtures check key results, but they are not a proof of identical handling of every CSV dialect.
-- Future work: document dataset provenance, publish a hosted demo, add mobile browser automation, and expand analyses with group counts and uncertainty where appropriate.
+`.local/` contains the database and a generated signing secret and is excluded from Git. The directory is 0700 and database/secret files are 0600 on this Mac. No password or real bearer token is included in the repository. Run `manage.py purge_expired_security_data` periodically to remove expired sessions, rate buckets and tokens. Stop the server before making a private database backup.
 
 ## License
 
-Project code is available under the [MIT License](LICENSE). Dataset attribution and reuse terms must be documented separately.
+Project code and generated fictional data use the [MIT License](LICENSE). The original dataset's attribution and reuse terms remain unverified and are not established by the code license.

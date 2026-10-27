@@ -67,6 +67,7 @@ class AnalyzerTests(unittest.TestCase):
         cases = (("", "Missing required columns"), (headers + "\n", "no student records"),
                  (headers.replace("math score", "other") + "\n", "Missing required columns"),
                  (headers + ",math score\n", "unique"),
+                 (headers + ",total score\n", "reserved"),
                  (headers + '\n"unterminated', "CSV line"),
                  (headers + "\nfemale,group A\n", "column count"))
         for text, message in cases:
@@ -125,3 +126,21 @@ class AnalyzerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class ExpandedDataTests(unittest.TestCase):
+    def test_synthetic_dataset_shape_and_ranges(self):
+        students = read_students(ROOT / 'data/synthetic_students.csv')
+        self.assertEqual(len(students), 5000)
+        self.assertEqual(len(students[0]['scores']), 8)
+        self.assertEqual(len({s['student_id'] for s in students}), 5000)
+        self.assertTrue(all(0 <= value <= 100 for s in students for value in s['scores'].values()))
+        self.assertEqual(len(summarize_students(students)['subject_averages']), 8)
+        self.assertAlmostEqual(students[0]['average'], sum(students[0]['scores'].values()) / 8)
+
+    def test_csv_formula_text_is_neutralized(self):
+        students = read_students(FIXTURE)
+        students[0]['parent_education'] = '=HYPERLINK("https://example.com")'
+        with tempfile.TemporaryDirectory() as folder, contextlib.redirect_stdout(io.StringIO()):
+            export_results(students, summarize_students(students)['subject_averages'], folder)
+            with (Path(folder) / 'student_results.csv').open(newline='') as file:
+                self.assertTrue(next(csv.DictReader(file))['parent_education'].startswith("'="))

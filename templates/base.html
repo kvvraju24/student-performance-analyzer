@@ -1,0 +1,4 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Student Analyzer Workspace</title><link rel="stylesheet" href="/style.css"></head>
+<body><header><h1>Student Performance Analyzer</h1><p>Private workspace · records are scoped to your account</p></header><main>
+<nav><a href="/">Synthetic demo</a> · <a href="/workspace/">My students</a>{% if user.is_authenticated %} · <a href="/accounts/password_change/">Change password</a><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button>Sign out</button></form>{% endif %}</nav>
+{% block content %}{% endblock %}</main></body></html>

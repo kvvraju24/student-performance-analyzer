@@ -67,6 +67,7 @@ test('histogram includes 100 and fractional averages in correct intervals', asyn
 test('reject invalid scores, headers, empty input and malformed quoting', async () => {
     const { run } = await dashboard();
     for (const bad of ['', fixture.split('\n')[0], fixture.replace('math score', 'other'),
+                       fixture.replace('writing score', 'writing score,total score'),
                        fixture.replace('100,90,80', '101,90,80'), fixture.replace('100,90,80', '-1,90,80'),
                        fixture.replace('100,90,80', ',90,80'), fixture.replace('100,90,80', '70.5,90,80'),
                        fixture + '\n"unfinished', fixture.replace('100,90,80', '"100"oops,90,80')]) {
@@ -92,4 +93,16 @@ test('data load failures and invalid CSV show an error', async () => {
         assert.equal(elements.get('error').style.display, 'block');
         assert.match(elements.get('error').textContent, /Could not load student data/);
     }
+});
+
+test('expanded synthetic data renders eight subject columns and 5000 records', async () => {
+    const csv = fs.readFileSync(path.join(root, 'data/synthetic_students.csv'), 'utf8');
+    const { elements, run } = await dashboard(csv);
+    assert.equal(elements.get('count').textContent, '5,000');
+    assert.equal(run('scoreFields.length'), 8);
+    assert.match(elements.get('student-columns').innerHTML, /Computer Science/);
+    assert.match(elements.get('student-columns').innerHTML, /History/);
+    const expected = csv.trim().split('\n')[1].split(',').slice(-8).map(Number).reduce((a,b) => a+b, 0) / 8;
+    assert.equal(run('overall(data[0])'), expected);
+    assert.equal((elements.get('table').innerHTML.match(/class="num"/g) || []).length, 12 * 8);
 });

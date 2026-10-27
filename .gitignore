@@ -5,3 +5,13 @@ __pycache__/
 .pytest_cache/
 # Keep committed sample outputs; use reports/ for personal runs.
 reports/
+.local/
+.env
+.env.*
+!.env.example
+*.sqlite3
+*.sqlite3-*
+*.db
+*.pem
+*.key
+security-reports/

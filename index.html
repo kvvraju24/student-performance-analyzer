@@ -11,15 +11,15 @@
     <link rel="stylesheet" href="style.css">
 </head>
 
-<body>
+<body data-source="data/synthetic_students.csv">
 
 <header>
     <h1>Student Performance Analyzer</h1>
-    <p>Explore 1,000 student records across math, reading, and writing.</p>
+    <p>Explore 5,000 fictional students across eight subjects.</p>
 </header>
 
 <main>
-<p class="sub">Group comparisons describe this dataset and do not establish causes. Dropdown filters update all charts and metrics; search applies to the table.</p>
+<p class="sub">This is synthetic demonstration data, not real students or demographic evidence. <a href="/workspace/">Open your private workspace</a>. Dropdown filters update all charts and metrics; search applies to the table.</p>
 
     <!-- FILTERS -->
 
@@ -71,7 +71,7 @@
         <article class="metric">
             <span>Average Score</span>
             <strong id="average">—</strong>
-            <small>across three subjects</small>
+            <small>across all subjects</small>
         </article>
 
         <article class="metric">
@@ -171,7 +171,7 @@
 
                 <thead>
 
-                    <tr>
+                    <tr id="student-columns">
                         <th>Gender</th>
                         <th>Race / Ethnicity</th>
                         <th>Parent Education</th>
